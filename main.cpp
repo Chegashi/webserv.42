@@ -17,6 +17,10 @@
 
 #include "Component.hpp"
 
+#include "ParsingError.hpp"
+
+#define GLOBAL_CONTEXT_NAME "__globalContext__"
+
 #define PRINT_VALUE(x) println(#x, " = ", x)
 #define PRINT_LINE_VALUE(x) println(__FILE__, ":", __LINE__, " ", #x, " = ", x)
 
@@ -30,7 +34,7 @@ int reachedEnd(std::string::iterator &it, char pseudoEnd) {
 	return *it == pseudoEnd && !*it;
 }
 
-int recursivelyParseCfg(Component &currentContext,
+void recursivelyParseCfg(Component &currentContext,
 						Component &root,
 						std::string currentContextName,
 						std::string::iterator &ch,
@@ -53,20 +57,28 @@ int recursivelyParseCfg(Component &currentContext,
 					ch++;
 				}
 				if (reachedEnd(ch, end)) {
-					return 1;
+					throw std::string(end ? "Unexpected end of scope" : "Unexpected end of file");
 				}
 				if (&root != &currentContext && componentName == root.name()) {
-					return 1;
+					throw std::string(GLOBAL_CONTEXT_NAME "is not allowed as a context name");
 				}
 				if (!std::iswspace(*ch) && *ch != '{') {
-					return 1;
+					// return 1;
+					throw std::string("Unexpected character");
 				}
 				skipWhiteSpace(ch, end);
 				if (!reachedEnd(ch, end)) {
 					Component child;
 					child.setName(componentName);
 					if (*ch == ';' || *ch == '}' || *ch == '#') {
-						return 1;
+						if (*ch == ';') {
+							throw std::string("A directive without attributes is not allowed");
+						}
+						else if (*ch == '#') {
+							throw std::string("Comments are not allowed directly after a context/directive name");
+						}
+						throw std::string("Unexpected character");
+						// return 1;
 					}
 					else {
 						while (*ch != ';' && *ch != '{' && !reachedEnd(ch, end)) {
@@ -76,7 +88,8 @@ int recursivelyParseCfg(Component &currentContext,
 								ch++;
 							}
 							if (reachedEnd(ch, end)) {
-								return 1;
+								throw std::string(end ? "Unexpected end of scope" : "Unexpected end of file");
+								// return 1;
 							}
 							child.appendAttr(attr);
 							skipWhiteSpace(ch, end);
@@ -84,9 +97,7 @@ int recursivelyParseCfg(Component &currentContext,
 					}
 					if (*ch == '{') {
 						ch++;
-						if (recursivelyParseCfg(child, root, componentName, ch, '}')) {
-							return 1;
-						}
+						recursivelyParseCfg(child, root, componentName, ch, '}');
 						currentContext.appendChild(child);
 					}
 					else if (*ch == ';') {
@@ -94,33 +105,36 @@ int recursivelyParseCfg(Component &currentContext,
 						currentContext.appendChild(child);
 					}
 					else {
-						return 1;
+						throw std::string(std::string("") + "Expected start of a context or end of a directive, got \"" + *ch + "\"");
+						// return 1;
 					}
 				}
 				else {
-					return 1;
+					throw std::string(end ? "Unexpected end of scope" : "Unexpected end of file");
+					// return 1;
 				}
 			}
 		}
 		if (&root != &currentContext && !*ch) {
-			println(__FILE__, ":", __LINE__);
-			println(*ch);
-			return 1;
+			// println(__FILE__, ":", __LINE__);
+			// println(*ch);
+			throw std::string("Unexpected end of file");
+			// return 1;
 		}
 		if (*ch == end && *ch) {
 			ch++;
 			break ;
 		}
 	}
-	return 0;
 }
 
-#define GLOBAL_CONTEXT_NAME "__globalContext__"
 
-int parseConfigFile(std::string cfg, std::string cfgFname, Component &root) {
+void parseConfigFile(std::string cfg, std::string cfgFname, Component &root) {
 	std::string::iterator begin = cfg.begin();
-	int ret = recursivelyParseCfg(root, root, GLOBAL_CONTEXT_NAME, begin, '\0');
-	if (ret) {
+	try {
+		recursivelyParseCfg(root, root, GLOBAL_CONTEXT_NAME, begin, '\0');
+	}
+	catch (const std::string &e) {
 		int occurrences = 0;
 		std::string::size_type pos = 0;
 		std::string::size_type old_pos = 0;
@@ -129,9 +143,9 @@ int parseConfigFile(std::string cfg, std::string cfgFname, Component &root) {
 			++occurrences;
 			pos += 1;
 		}
-		errorln("parsing error at character: ", cfgFname, ":", occurrences + 1, ":", (int)(begin - cfg.begin()) - old_pos);
+		throw ParsingError(e, cfgFname, occurrences + 1, (int)(begin - cfg.begin()) - old_pos);
+		// errorln("parsing error at character: ", cfgFname, ":", occurrences + 1, ":", (int)(begin - cfg.begin()) - old_pos);
 	}
-	return ret;
 }
 
 void startServer() {
@@ -231,15 +245,18 @@ int main(int ac, char **av, char **ep) {
     strStream << configFile.rdbuf();
 	std::string configFileContents;
     configFileContents = strStream.str();
-	std::string abc = "abc";
-	// println("end == '\\0' = ", *abc.end() == '\0', " ", true);	
 	std::cout << configFileContents << std::endl;
 	// std::cout << "success!" << std::endl;
 	Component root;
 
-	int ret = parseConfigFile(configFileContents, configFileName, root);
-	PRINT_LINE_VALUE(ret);
+	try {
+		parseConfigFile(configFileContents, configFileName, root);
+	}
+	catch (const std::exception &e) {
+		errorln(e.what());
+	}
 	printComponentRecursively(root);
+	
 	
 	// startServer();
 	println("-- end --");
