@@ -1,7 +1,8 @@
 #include "ParsingError.hpp"
+#include "utils.hpp"
 
 ParsingError::ParsingError(std::string _error, std::string file, int line, int col) {
-	error = file + ":" + std::to_string(line) + ":" + std::to_string(col) + " " + _error;
+	error = file + ":" + to_string(line) + ":" + to_string(col) + " " + _error;
 }
 
 ParsingError::~ParsingError() throw() {}

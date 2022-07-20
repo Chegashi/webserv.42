@@ -36,10 +36,11 @@ int reachedEnd(std::string::iterator &it, char pseudoEnd) {
 
 void recursivelyParseCfg(Component &currentContext,
 						Component &root,
-						std::string currentContextName,
+						// std::string currentContextName,
 						std::string::iterator &ch,
+						std::string::iterator it_begin,
 						char end) {
-	currentContext.setName(currentContextName);
+	// currentContext.setName(currentContextName);
 	currentContext.setIsContext(true);
 	while (!reachedEnd(ch, end)) {
 		skipWhiteSpace(ch, end);
@@ -50,26 +51,46 @@ void recursivelyParseCfg(Component &currentContext,
 					ch++;
 				}
 			}
-			else if (std::isalpha(*ch)) {
+			else if ((std::isalpha(*ch) || *ch == '_' || *ch == '-')) {
 				std::string componentName = "";
-				while ((std::isalpha(*ch) || *ch == '_' || *ch == '-') && !reachedEnd(ch, end)) {
-					componentName += *ch;
-					ch++;
+				// int index = (int)(ch - it_begin);
+				std::string::size_type pos = 0;
+				std::string::size_type old_pos = 0;
+				std::string::iterator begin = it_begin;
+				int occurrences = 0;
+				// std::string::size_type pos = 0;
+				// std::string::size_type old_pos = 0;
+				// std::string::iterator begin = it_begin;
+				while (begin < ch) {
+					if (*begin == '\n') {
+						occurrences++;
+						old_pos = pos;
+					}
+					begin++;
+					pos++;
 				}
-				if (reachedEnd(ch, end)) {
-					throw std::string(end ? "Unexpected end of scope" : "Unexpected end of file");
-				}
-				if (&root != &currentContext && componentName == root.name()) {
-					throw std::string(GLOBAL_CONTEXT_NAME "is not allowed as a context name");
-				}
-				if (!std::iswspace(*ch) && *ch != '{') {
+				int line = occurrences + 1;
+				int col = (int)(ch - it_begin) - old_pos;
+				while (begin < ch)
+				{
+					if (*begin == '\n')
+					{
+						occurrences++;
+						old_pos = pos;
+					}
+					begin++;
+					pos++;
 					// return 1;
 					throw std::string("Unexpected character");
 				}
 				skipWhiteSpace(ch, end);
+				// PRINT_LINE_VALUE("here");
 				if (!reachedEnd(ch, end)) {
 					Component child;
 					child.setName(componentName);
+					child.setDepth(currentContext.depth() + 1);
+					child.setCol(col);
+					child.setLine(line);
 					if (*ch == ';' || *ch == '}' || *ch == '#') {
 						if (*ch == ';') {
 							throw std::string("A directive without attributes is not allowed");
@@ -80,24 +101,22 @@ void recursivelyParseCfg(Component &currentContext,
 						throw std::string("Unexpected character");
 						// return 1;
 					}
-					else {
-						while (*ch != ';' && *ch != '{' && !reachedEnd(ch, end)) {
-							std::string attr = "";
-							while (!std::iswspace(*ch) && *ch != ';' && *ch != '#' && *ch != '{' && !reachedEnd(ch, end)) {
-								attr += *ch;
-								ch++;
-							}
-							if (reachedEnd(ch, end)) {
-								throw std::string(end ? "Unexpected end of scope" : "Unexpected end of file");
-								// return 1;
-							}
-							child.appendAttr(attr);
-							skipWhiteSpace(ch, end);
+					while (*ch != ';' && *ch != '{' && !reachedEnd(ch, end)) {
+						std::string attr = "";
+						while (!std::iswspace(*ch) && *ch != ';' && *ch != '#' && *ch != '{' && !reachedEnd(ch, end)) {
+							attr += *ch;
+							ch++;
 						}
+						if (reachedEnd(ch, end)) {
+							throw std::string(end ? "Unexpected end of scope" : "Unexpected end of file");
+							// return 1;
+						}
+						child.appendAttr(attr);
+						skipWhiteSpace(ch, end);
 					}
 					if (*ch == '{') {
 						ch++;
-						recursivelyParseCfg(child, root, componentName, ch, '}');
+						recursivelyParseCfg(child, root, ch, it_begin, '}');
 						currentContext.appendChild(child);
 					}
 					else if (*ch == ';') {
@@ -109,10 +128,15 @@ void recursivelyParseCfg(Component &currentContext,
 						// return 1;
 					}
 				}
-				else {
-					throw std::string(end ? "Unexpected end of scope" : "Unexpected end of file");
+				// else {
+					// throw std::string(end ? "Unexpected end of scope" : "Unexpected end of file");
 					// return 1;
-				}
+				// }
+			}
+			else {
+				// PRINT_LINE_VALUE("here");
+				// PRINT_LINE_VALUE(*ch);
+				// throw std::string("Unexpected character");
 			}
 		}
 		if (&root != &currentContext && !*ch) {
@@ -132,9 +156,13 @@ void recursivelyParseCfg(Component &currentContext,
 void parseConfigFile(std::string cfg, std::string cfgFname, Component &root) {
 	std::string::iterator begin = cfg.begin();
 	try {
-		recursivelyParseCfg(root, root, GLOBAL_CONTEXT_NAME, begin, '\0');
+		root.setName(GLOBAL_CONTEXT_NAME);
+		root.setDepth(0);
+		PRINT_LINE_VALUE(root.depth());
+		recursivelyParseCfg(root, root, begin, cfg.begin(), '\0');
 	}
 	catch (const std::string &e) {
+		PRINT_LINE_VALUE("here");
 		int occurrences = 0;
 		std::string::size_type pos = 0;
 		std::string::size_type old_pos = 0;
@@ -199,8 +227,10 @@ void printComponentRecursively(const Component &current, int tabs = 0) {
 	for (int i = 0; i < tabs; i++) {
 		print('\t');
 	}
-	if (current.name() != GLOBAL_CONTEXT_NAME)
+	if (current.name() != GLOBAL_CONTEXT_NAME) {
+		print(current.line(), ":", current.col(), ' ', current.depth(), ' ');
 		print(current.name(), ' ');
+	}
 	int len = current.attr().size();
 	for (int i = 0; i < len; i++) {
 		print(current.attr(i), i == len - 1 ? "" : " ");
@@ -210,7 +240,7 @@ void printComponentRecursively(const Component &current, int tabs = 0) {
 			println("{");
 		int complen = current.children().size();
 		for (int i = 0; i < complen; i++) {
-			printComponentRecursively(current.children(i), tabs + (current.name() != GLOBAL_CONTEXT_NAME));
+			printComponentRecursively(current.children(i), tabs + ((current.name() != GLOBAL_CONTEXT_NAME)));
 		}
 		if (current.name() != GLOBAL_CONTEXT_NAME) {
 			for (int i = 0; i < tabs; i++) {
@@ -235,7 +265,7 @@ int main(int ac, char **av, char **ep) {
 		return 1;
 	}
 	std::string configFileName = av[1];
-	std::ifstream configFile; configFile.open(configFileName, std::ios::in);
+	std::ifstream configFile; configFile.open(configFileName.c_str(), std::ios::in);
 	struct stat sb;
 	if (!configFile.is_open() || !(stat(configFileName.c_str(), &sb) == 0 && S_ISREG(sb.st_mode))) {
 		std::cerr << "An error occured while trying to open \"" << configFileName << "\"" << std::endl;
@@ -251,6 +281,7 @@ int main(int ac, char **av, char **ep) {
 
 	try {
 		parseConfigFile(configFileContents, configFileName, root);
+		// validateConfigFile()
 	}
 	catch (const std::exception &e) {
 		errorln(e.what());

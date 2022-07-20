@@ -3,19 +3,32 @@
 Component::Component(	std::string __name,
 						std::vector<std::string> __attr,
 						bool __isContext,
-						std::vector<Component> __children
+						std::vector<Component> __children,
+						int __line,
+						int __col,
+						int __depth
 					):	_name(__name),
 						_attributes(__attr),
 						_isContext(__isContext),
-						_children(__children) { }
+						_children(__children),
+						_line(__line),
+						_col(__col),
+						_depth(__depth) { }
 
-Component::Component(const Component &ref): _name(ref._name), _attributes(ref._attributes), _isContext(ref._isContext), _children(ref._children) {}
+Component::Component(const Component &ref): _name(ref._name),
+											_attributes(ref._attributes),
+											_isContext(ref._isContext),
+											_children(ref._children),
+											_line(ref._line),
+											_col(ref._col) {}
 
 Component &Component::operator=(const Component &ref) {
 	_name = ref._name;
 	_attributes = ref._attributes;
 	_isContext = ref._isContext;
 	_children = ref._children;
+	_line = ref._line;
+	_col = ref._col;
 	return *this;
 }
 
@@ -62,6 +75,29 @@ void Component::setName(const std::string &str) {
 	_name = str;
 }
 
+int Component::line() const {
+	return _line;
+}
+
+int Component::col() const {
+	return _col;
+}
+
+void Component::setLine(int __line) {
+	_line = __line;
+}
+
+void Component::setCol(int __col) {
+	_col = __col;
+}
+
+int Component::depth() const {
+	return _depth;	
+}
+
+void Component::setDepth(int __depth) {
+	_depth = __depth;	
+}
 
 void Component::setIsContext(bool __isContext) {
 	_isContext = __isContext;
