@@ -172,3 +172,32 @@ std::vector<Component> Component::findChildrenContext(std::string __name) {
 	}
 	return ret;
 }
+
+std::vector<Component> Component::getAllChildrenAndSubChildren() {
+	std::vector<Component> ret;
+
+	for (std::vector<Component>::iterator it = _children.begin(); it != _children.end(); it++) {
+		ret.push_back(Component(it->name(), it->parentName(), it->attr(), it->isContext(), std::vector<Component>(), it->line(), it->col(), it->depth()));
+		if (it->isContext()) {
+			std::vector<Component> tmp = it->getAllChildrenAndSubChildren();
+			ret.insert(ret.end(), tmp.begin(), tmp.end());
+		}
+	}
+	return ret;
+}
+
+
+std::vector<Component> Component::getAllChildrenAndSubChildren(std::string __name, bool __isContext) {
+	std::vector<Component> ret;
+
+	for (std::vector<Component>::iterator it = _children.begin(); it != _children.end(); it++) {
+		if (it->name() == __name && it->isContext() == __isContext) {
+			ret.push_back(Component(it->name(), it->parentName(), it->attr(), it->isContext(), std::vector<Component>(), it->line(), it->col(), it->depth()));
+			if (it->isContext()) {
+				std::vector<Component> tmp = it->getAllChildrenAndSubChildren(__name, __isContext);
+				ret.insert(ret.end(), tmp.begin(), tmp.end());
+			}
+		}
+	}
+	return ret;
+}

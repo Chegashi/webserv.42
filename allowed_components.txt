@@ -1,10 +1,10 @@
 contexts:
-	- http: (exactly one at the root, mandatory)
-	- server: (atleast one and can only exist inside the http context)
+	- http: (exactly one, AC: root)
+	- server: (atleast one, AC: http)
 	- location: [Path] (can only exist inside a server context)
 	- cgi: FileExtension (can only exist inside a server context)
 directives:
-	- listen: (?:):Number (mandatory inside a server context)
+	- listen: (?:[\S]+\:)Number (mandatory inside a server context)
 	- root: Path
 	- index: [String] (can only be a child of a server or location context)
 	- server_names: String

@@ -15,26 +15,18 @@
 #include <limits.h>
 #define BUFFERSIZE 1024
 
-#define COLOR(x) "\e[38;5;" #x "m"
-
-#define BABY_BLUE COLOR(117)
-
-#define BABY_PINK COLOR(176)
-
-#define CONST_BLUE COLOR(33)
-
-#define CLASS_GREEN COLOR(42)
-
-#define FAINT_GRAY COLOR(236)
-
-#define RESET "\e[0m"
+#include "colors.hpp"
 
 #include "Component.hpp"
+#include "AllowedComponent.hpp"
+
+#include "list.hpp"
 
 #include "ParsingError.hpp"
+#include "LexicalError.hpp"
 
-#define GLOBAL_CONTEXT_NAME "root"
-#define GLOBAL_CONTEXT_PARENT_NAME "proot"
+#define GLOBAL_CONTEXT "root"
+#define PARENT_GLOBAL_CONTEXT "proot"
 
 #define PRINT_VALUE(x) println(#x, " = ", x)
 #define PRINT_LINE_VALUE(x) println(__FILE__, ":", __LINE__, " ", #x, " = ", x)
@@ -162,12 +154,12 @@ void recursivelyParseCfg(Component &currentContext,
 				// }
 			}
 			else {
-				PRINT_LINE_VALUE("here");
-				PRINT_LINE_VALUE(*ch);
-				PRINT_LINE_VALUE(end == '\0');
-				PRINT_LINE_VALUE(end);
-				PRINT_LINE_VALUE(currentContext.name());
-				PRINT_LINE_VALUE(reachedEnd(ch, end));
+				// PRINT_LINE_VALUE("here");
+				// PRINT_LINE_VALUE(*ch);
+				// PRINT_LINE_VALUE(end == '\0');
+				// PRINT_LINE_VALUE(end);
+				// PRINT_LINE_VALUE(currentContext.name());
+				// PRINT_LINE_VALUE(reachedEnd(ch, end));
 				// PRINT_LINE_VALUE(*ch == end || *ch == '\0');
 				throw std::string("Unexpected character");
 			}
@@ -186,11 +178,11 @@ void recursivelyParseCfg(Component &currentContext,
 }
 
 
-void parseConfigFile(std::string cfg, std::string cfgFname, Component &root) {
+void parseConfigFile(std::string cfg, std::string cfgFname, Component &root, std::string programName) {
 	std::string::iterator begin = cfg.begin();
 	try {
-		root.setName(GLOBAL_CONTEXT_NAME);
-		root.setParentName(GLOBAL_CONTEXT_PARENT_NAME);
+		root.setName(GLOBAL_CONTEXT);
+		root.setParentName(PARENT_GLOBAL_CONTEXT);
 		root.setDepth(0);
 		// PRINT_LINE_VALUE(root.depth());
 		recursivelyParseCfg(root, root, begin, cfg.begin(), '\0');
@@ -205,9 +197,48 @@ void parseConfigFile(std::string cfg, std::string cfgFname, Component &root) {
 			++occurrences;
 			pos += 1;
 		}
-		throw ParsingError(e, cfgFname, occurrences + 1, (int)(begin - cfg.begin()) - old_pos);
+		throw ParsingError(e, programName, cfgFname, occurrences + 1, (int)(begin - cfg.begin()) - old_pos, true, cfg);
 		// errorln("parsing error at character: ", cfgFname, ":", occurrences + 1, ":", (int)(begin - cfg.begin()) - old_pos);
 	}
+}
+
+#define HTTP_CONTEXT "http"
+#define SERVER_CONTEXT "server"
+#define LOCATION_CONTEXT "location"
+#define CGI_CONTEXT "cgi"
+
+
+
+void validateConfigFile(Component &root) {
+
+	// std::vector<std::pair<std::string, bool>> componentsAndTypes;
+
+	
+	std::vector<AllowedComponent> allowedComponents;
+
+	allowedComponents.push_back(AllowedComponent(HTTP_CONTEXT, CONTEXT, list<std::string>(GLOBAL_CONTEXT), 0, 0, NULL));
+	allowedComponents.push_back(AllowedComponent(SERVER_CONTEXT, CONTEXT, list<std::string>(HTTP_CONTEXT), 0, 0, NULL));
+	allowedComponents.push_back(AllowedComponent(LOCATION_CONTEXT, CONTEXT, list<std::string>(SERVER_CONTEXT), 1, 1, NULL));
+	allowedComponents.push_back(AllowedComponent(CGI_CONTEXT, CONTEXT, list<std::string>(SERVER_CONTEXT), 1, 1, NULL));
+
+	// componentsAndTypes.push_back(std::make_pair(HTTP_CONTEXT, CONTEXT));
+	// componentsAndTypes.push_back(std::make_pair(SERVER_CONTEXT, CONTEXT));
+	// componentsAndTypes.push_back(std::make_pair(LOCATION_CONTEXT, CONTEXT));
+	// componentsAndTypes.push_back(std::make_pair(CGI_CONTEXT, CONTEXT));
+
+	std::vector<Component> allComponents = root.getAllChildrenAndSubChildren();
+	// for (std::vector<Component>::iterator it = allComponents.begin(); it != allComponents.end(); it++) {
+	// 	print((it->isContext() ? "Context  " : "Directive"), ": ", it->name(), ":");
+	// 	for (std::vector<std::string>::const_iterator cit = it->attr().begin(); cit != it->attr().end(); cit++) {
+	// 		print(' ', *cit);
+	// 	}
+	// 	println("");
+	// }
+	// for (std::vector<Component>::const_iterator it = root.children().begin(); it != root.children().end(); it++) {
+	// 	if (it->isContext() && it->name() != HTTP_CONTEXT) {
+	// 		// throw LexicalError();
+	// 	}
+	// }
 }
 
 void startServer() {
@@ -263,7 +294,7 @@ void printComponentRecursively(const Component &current, int tabs = 0) {
 		print("→   ");
 	}
 	print(RESET);
-	if (current.parentName() != GLOBAL_CONTEXT_PARENT_NAME) {
+	if (current.parentName() != PARENT_GLOBAL_CONTEXT) {
 		// print(current.line(), ":", current.col(), ' ', current.depth(), ' ');
 		print(current.isContext() ? BABY_PINK : BABY_BLUE);
 		print(current.name(), ' ');
@@ -276,7 +307,7 @@ void printComponentRecursively(const Component &current, int tabs = 0) {
 	}
 	print(RESET);
 	if (current.isContext()) {
-		if (current.parentName() != GLOBAL_CONTEXT_PARENT_NAME) {
+		if (current.parentName() != PARENT_GLOBAL_CONTEXT) {
 			println("{");
 			if (current.children().size() == 0) {
 				print('\n');
@@ -285,21 +316,23 @@ void printComponentRecursively(const Component &current, int tabs = 0) {
 		int complen = current.children().size();
 		for (int i = 0; i < complen; i++) {
 			printComponentRecursively(current.children(i), tabs + 1
-			 * ((current.parentName() != GLOBAL_CONTEXT_PARENT_NAME))
+			 * ((current.parentName() != PARENT_GLOBAL_CONTEXT))
 			);
 		}
-		if (current.parentName() != GLOBAL_CONTEXT_PARENT_NAME) {
+		if (current.parentName() != PARENT_GLOBAL_CONTEXT) {
 			print(FAINT_GRAY);
 			for (int i = 0; i < tabs; i++) {
 				print("→   ");
 			}
 			print(RESET);
 		}
-		if (current.parentName() != GLOBAL_CONTEXT_PARENT_NAME)
+		if (current.parentName() != PARENT_GLOBAL_CONTEXT)
 			println("}");
 	}
 	else {
+		print(BOLD);
 		println(';');
+		print(RESET);
 	}
 }
 
@@ -328,8 +361,8 @@ int main(int ac, char **av, char **ep) {
 	Component root;
 
 	try {
-		parseConfigFile(configFileContents, configFileName, root);
-		// validateConfigFile(root);
+		parseConfigFile(configFileContents, configFileName, root, av[0]);
+		validateConfigFile(root);
 		// PRINT_LINE_VALUE("here");
 		// std::vector<Component> rootChildren = root.children();
 		// for (std::vector<Component>::const_iterator cit = root.children().begin(); cit != root.children().end(); cit++) {

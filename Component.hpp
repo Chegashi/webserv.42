@@ -4,6 +4,9 @@
 # include <string>
 # include <vector>
 
+# define CONTEXT true
+# define DIRECTIVE false
+
 class Component {
 	private:
 		std::string _name;
@@ -48,6 +51,8 @@ class Component {
 		std::vector<Component> findChildren(std::string __name);
 		std::vector<Component> findChildrenDirective(std::string __name);
 		std::vector<Component> findChildrenContext(std::string __name);
+		std::vector<Component> getAllChildrenAndSubChildren();
+		std::vector<Component> getAllChildrenAndSubChildren(std::string __name, bool __isContext);
 };
 
 #endif
