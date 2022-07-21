@@ -1,0 +1,16 @@
+contexts:
+	- http: (exactly one at the root, mandatory)
+	- server: (atleast one and can only exist inside the http context)
+	- location: [Path] (can only exist inside a server context)
+	- cgi: FileExtension (can only exist inside a server context)
+directives:
+	- listen: (?:):Number (mandatory inside a server context)
+	- root: Path
+	- index: [String] (can only be a child of a server or location context)
+	- server_names: String
+	- client_max_body_size: [1-9][0-9]*(?:G|M|K)
+	- allow_methods: POST|GET|DELETE
+	- autoindex: on|off
+	- error_page: Number Path
+	- return: [1-5][0-9][0-9] URL (aka redirection, can only exist inside a server/location context)
+	- cgi_path: Path (exactly one inside a cgi context, mandatory)

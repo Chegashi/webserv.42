@@ -1,13 +1,13 @@
 #include "Component.hpp"
 
-Component::Component(	std::string __name,
+Component::Component(	std::string __name, std::string __parentName,
 						std::vector<std::string> __attr,
 						bool __isContext,
 						std::vector<Component> __children,
 						int __line,
 						int __col,
 						int __depth
-					):	_name(__name),
+					):	_name(__name), _parentName(__parentName),
 						_attributes(__attr),
 						_isContext(__isContext),
 						_children(__children),
@@ -15,20 +15,23 @@ Component::Component(	std::string __name,
 						_col(__col),
 						_depth(__depth) { }
 
-Component::Component(const Component &ref): _name(ref._name),
+Component::Component(const Component &ref): _name(ref._name), _parentName(ref._parentName),
 											_attributes(ref._attributes),
 											_isContext(ref._isContext),
 											_children(ref._children),
 											_line(ref._line),
-											_col(ref._col) {}
+											_col(ref._col),
+											_depth(ref._depth) {}
 
 Component &Component::operator=(const Component &ref) {
 	_name = ref._name;
+	_parentName = ref._parentName;
 	_attributes = ref._attributes;
 	_isContext = ref._isContext;
 	_children = ref._children;
 	_line = ref._line;
 	_col = ref._col;
+	_depth = ref._depth;
 	return *this;
 }
 
@@ -36,6 +39,10 @@ Component::~Component() {}
 
 const std::string& Component::name() const {
 	return _name;
+}
+
+const std::string& Component::parentName() const {
+	return _parentName;
 }
 
 bool Component::isContext() const {
@@ -73,6 +80,10 @@ void Component::appendChild(const Component &comp) {
 
 void Component::setName(const std::string &str) {
 	_name = str;
+}
+
+void Component::setParentName(const std::string &str) {
+	_parentName = str;
 }
 
 int Component::line() const {

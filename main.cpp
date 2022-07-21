@@ -15,24 +15,52 @@
 #include <limits.h>
 #define BUFFERSIZE 1024
 
+#define COLOR(x) "\e[38;5;" #x "m"
+
+#define BABY_BLUE COLOR(117)
+
+#define BABY_PINK COLOR(176)
+
+#define CONST_BLUE COLOR(33)
+
+#define CLASS_GREEN COLOR(42)
+
+#define FAINT_GRAY COLOR(236)
+
+#define RESET "\e[0m"
+
 #include "Component.hpp"
 
 #include "ParsingError.hpp"
 
-#define GLOBAL_CONTEXT_NAME "__globalContext__"
+#define GLOBAL_CONTEXT_NAME "root"
+#define GLOBAL_CONTEXT_PARENT_NAME "proot"
 
 #define PRINT_VALUE(x) println(#x, " = ", x)
 #define PRINT_LINE_VALUE(x) println(__FILE__, ":", __LINE__, " ", #x, " = ", x)
 
-void skipWhiteSpace(std::string::iterator &it, char pseudoEnd) {
-	while (*it != pseudoEnd && *it && std::iswspace(*it)) {
-		it++;
+int reachedEnd(std::string::iterator &ch, char end) {
+	return *ch == end || *ch == '\0';
+}
+
+void skipWhiteSpace(std::string::iterator &ch, char end) {
+	while (*ch != end && *ch && std::iswspace(*ch)) {
+		ch++;
 	}
 }
 
-int reachedEnd(std::string::iterator &it, char pseudoEnd) {
-	return *it == pseudoEnd && !*it;
+void skipComment(std::string::iterator &ch) {
+	if (*ch == '#') {
+		ch++;
+		std::string skippedComment = "";
+		while (*ch && *ch != '\n') {
+			skippedComment += *ch;
+			ch++;
+		}
+		PRINT_LINE_VALUE(skippedComment);
+	}
 }
+
 
 void recursivelyParseCfg(Component &currentContext,
 						Component &root,
@@ -42,25 +70,21 @@ void recursivelyParseCfg(Component &currentContext,
 						char end) {
 	// currentContext.setName(currentContextName);
 	currentContext.setIsContext(true);
+	if (*ch == end && *ch) {
+		ch++;
+		return;
+	}
 	while (!reachedEnd(ch, end)) {
-		skipWhiteSpace(ch, end);
+		while (std::iswspace(*ch) || *ch == '#') {
+			skipWhiteSpace(ch, end);
+			skipComment(ch);
+		}
 		if (!reachedEnd(ch, end)) {
-			if (*ch == '#') {
-				ch++;
-				while (!reachedEnd(ch, end) && *ch != '\n') {
-					ch++;
-				}
-			}
-			else if ((std::isalpha(*ch) || *ch == '_' || *ch == '-')) {
-				std::string componentName = "";
-				// int index = (int)(ch - it_begin);
+			if ((std::isalpha(*ch) || *ch == '_' || *ch == '-')) {
 				std::string::size_type pos = 0;
 				std::string::size_type old_pos = 0;
 				std::string::iterator begin = it_begin;
 				int occurrences = 0;
-				// std::string::size_type pos = 0;
-				// std::string::size_type old_pos = 0;
-				// std::string::iterator begin = it_begin;
 				while (begin < ch) {
 					if (*begin == '\n') {
 						occurrences++;
@@ -71,33 +95,34 @@ void recursivelyParseCfg(Component &currentContext,
 				}
 				int line = occurrences + 1;
 				int col = (int)(ch - it_begin) - old_pos;
-				while (begin < ch)
-				{
-					if (*begin == '\n')
-					{
-						occurrences++;
-						old_pos = pos;
-					}
-					begin++;
-					pos++;
-					// return 1;
-					throw std::string("Unexpected character");
+				std::string componentName = "";
+				std::string::iterator bkp = ch;
+				while ((std::isalpha(*ch) || *ch == '_' || *ch == '-') && !reachedEnd(ch, end)) {
+					componentName += *ch;
+					ch++;
+				}
+				if (reachedEnd(ch, end)) {
+					throw std::string(end ? "Unexpected end of scope" : "Unexpected end of file");
 				}
 				skipWhiteSpace(ch, end);
 				// PRINT_LINE_VALUE("here");
 				if (!reachedEnd(ch, end)) {
 					Component child;
 					child.setName(componentName);
+					// PRINT_LINE_VALUE(currentContext.depth());
 					child.setDepth(currentContext.depth() + 1);
 					child.setCol(col);
 					child.setLine(line);
+					// PRINT_LINE_VALUE(child.depth());
 					if (*ch == ';' || *ch == '}' || *ch == '#') {
 						if (*ch == ';') {
+							ch = bkp;
 							throw std::string("A directive without attributes is not allowed");
 						}
 						else if (*ch == '#') {
 							throw std::string("Comments are not allowed directly after a context/directive name");
 						}
+						PRINT_LINE_VALUE("here");
 						throw std::string("Unexpected character");
 						// return 1;
 					}
@@ -116,12 +141,15 @@ void recursivelyParseCfg(Component &currentContext,
 					}
 					if (*ch == '{') {
 						ch++;
+						child.setParentName(currentContext.name());
 						recursivelyParseCfg(child, root, ch, it_begin, '}');
 						currentContext.appendChild(child);
+						// PRINT_LINE_VALUE(child.depth());
 					}
 					else if (*ch == ';') {
 						ch++;
 						currentContext.appendChild(child);
+						// PRINT_LINE_VALUE(child.depth());
 					}
 					else {
 						throw std::string(std::string("") + "Expected start of a context or end of a directive, got \"" + *ch + "\"");
@@ -134,9 +162,14 @@ void recursivelyParseCfg(Component &currentContext,
 				// }
 			}
 			else {
-				// PRINT_LINE_VALUE("here");
-				// PRINT_LINE_VALUE(*ch);
-				// throw std::string("Unexpected character");
+				PRINT_LINE_VALUE("here");
+				PRINT_LINE_VALUE(*ch);
+				PRINT_LINE_VALUE(end == '\0');
+				PRINT_LINE_VALUE(end);
+				PRINT_LINE_VALUE(currentContext.name());
+				PRINT_LINE_VALUE(reachedEnd(ch, end));
+				// PRINT_LINE_VALUE(*ch == end || *ch == '\0');
+				throw std::string("Unexpected character");
 			}
 		}
 		if (&root != &currentContext && !*ch) {
@@ -157,12 +190,13 @@ void parseConfigFile(std::string cfg, std::string cfgFname, Component &root) {
 	std::string::iterator begin = cfg.begin();
 	try {
 		root.setName(GLOBAL_CONTEXT_NAME);
+		root.setParentName(GLOBAL_CONTEXT_PARENT_NAME);
 		root.setDepth(0);
-		PRINT_LINE_VALUE(root.depth());
+		// PRINT_LINE_VALUE(root.depth());
 		recursivelyParseCfg(root, root, begin, cfg.begin(), '\0');
+		// PRINT_LINE_VALUE(root.depth());
 	}
 	catch (const std::string &e) {
-		PRINT_LINE_VALUE("here");
 		int occurrences = 0;
 		std::string::size_type pos = 0;
 		std::string::size_type old_pos = 0;
@@ -224,30 +258,44 @@ void startServer() {
 }
 
 void printComponentRecursively(const Component &current, int tabs = 0) {
+	print(FAINT_GRAY);
 	for (int i = 0; i < tabs; i++) {
-		print('\t');
+		print("→   ");
 	}
-	if (current.name() != GLOBAL_CONTEXT_NAME) {
-		print(current.line(), ":", current.col(), ' ', current.depth(), ' ');
+	print(RESET);
+	if (current.parentName() != GLOBAL_CONTEXT_PARENT_NAME) {
+		// print(current.line(), ":", current.col(), ' ', current.depth(), ' ');
+		print(current.isContext() ? BABY_PINK : BABY_BLUE);
 		print(current.name(), ' ');
+		print(RESET);
 	}
 	int len = current.attr().size();
+	print(current.isContext() ? CLASS_GREEN : CONST_BLUE);
 	for (int i = 0; i < len; i++) {
-		print(current.attr(i), i == len - 1 ? "" : " ");
+		print(current.attr(i), current.isDirective() && i == len - 1 ? "" : " ");
 	}
+	print(RESET);
 	if (current.isContext()) {
-		if (current.name() != GLOBAL_CONTEXT_NAME)
+		if (current.parentName() != GLOBAL_CONTEXT_PARENT_NAME) {
 			println("{");
-		int complen = current.children().size();
-		for (int i = 0; i < complen; i++) {
-			printComponentRecursively(current.children(i), tabs + ((current.name() != GLOBAL_CONTEXT_NAME)));
-		}
-		if (current.name() != GLOBAL_CONTEXT_NAME) {
-			for (int i = 0; i < tabs; i++) {
-				print('\t');
+			if (current.children().size() == 0) {
+				print('\n');
 			}
 		}
-		if (current.name() != GLOBAL_CONTEXT_NAME)
+		int complen = current.children().size();
+		for (int i = 0; i < complen; i++) {
+			printComponentRecursively(current.children(i), tabs + 1
+			 * ((current.parentName() != GLOBAL_CONTEXT_PARENT_NAME))
+			);
+		}
+		if (current.parentName() != GLOBAL_CONTEXT_PARENT_NAME) {
+			print(FAINT_GRAY);
+			for (int i = 0; i < tabs; i++) {
+				print("→   ");
+			}
+			print(RESET);
+		}
+		if (current.parentName() != GLOBAL_CONTEXT_PARENT_NAME)
 			println("}");
 	}
 	else {
@@ -275,19 +323,27 @@ int main(int ac, char **av, char **ep) {
     strStream << configFile.rdbuf();
 	std::string configFileContents;
     configFileContents = strStream.str();
-	std::cout << configFileContents << std::endl;
+	// std::cout << configFileContents << std::endl;
 	// std::cout << "success!" << std::endl;
 	Component root;
 
 	try {
 		parseConfigFile(configFileContents, configFileName, root);
-		// validateConfigFile()
+		// validateConfigFile(root);
+		// PRINT_LINE_VALUE("here");
+		// std::vector<Component> rootChildren = root.children();
+		// for (std::vector<Component>::const_iterator cit = root.children().begin(); cit != root.children().end(); cit++) {
+		// }
+		// PRINT_LINE_VALUE("here");
+		printComponentRecursively(root);
 	}
 	catch (const std::exception &e) {
 		errorln(e.what());
 	}
-	printComponentRecursively(root);
-	
+	// PRINT_LINE_VALUE(root.children()[0].name());
+	// PRINT_LINE_VALUE(root.children()[0].depth());
+	// PRINT_LINE_VALUE(root.children()[0].children()[0].name());
+	// PRINT_LINE_VALUE(root.children()[0].children()[0].depth());
 	
 	// startServer();
 	println("-- end --");

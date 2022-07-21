@@ -7,6 +7,7 @@
 class Component {
 	private:
 		std::string _name;
+		std::string _parentName;
 		std::vector<std::string> _attributes;
 		bool _isContext;
 		std::vector<Component> _children;
@@ -14,7 +15,7 @@ class Component {
 		int _col;
 		int _depth;
 	public:
-		Component(std::string __name = "",
+		Component(std::string __name = "", std::string __parentName = "",
 				  std::vector<std::string> __attr = std::vector<std::string>(),
 				  bool __isContext = false,
 				  std::vector<Component> __children = std::vector<Component>(),
@@ -29,12 +30,14 @@ class Component {
 		void setCol(int __col);
 		void setDepth(int __depth);
 		const std::string& name() const;
+		const std::string& parentName() const;
 		const std::vector<std::string>& attr() const;
 		const std::string& attr(int index) const;
 		const std::vector<Component>& children() const;
 		const Component& children(int index) const;
 		void appendAttr(const std::string &str);
 		void setName(const std::string &str);
+		void setParentName(const std::string &str);
 		void setIsContext(bool __isContext);
 		bool isContext() const;
 		bool isDirective() const;
