@@ -5,7 +5,7 @@ AllowedComponent::AllowedComponent(std::string __name,
 								   std::vector<std::string> __allowedParents,
 								   int __minAttr,
 								   int __maxAttr,
-								   bool (*_attrIsCorrect)(std::string, int)) : _name(__name),
+								   std::string (*_attrIsCorrect)(std::string, int)) : _name(__name),
 																			   _isContext(__isContext),
 																			   _allowedParents(__allowedParents),
 																			   _minAttr(__minAttr),
@@ -30,4 +30,25 @@ AllowedComponent &AllowedComponent::operator=(const AllowedComponent &ref) {
 	attrIsCorrect = ref.attrIsCorrect;
 	return *this;
 }
+
+const std::string &AllowedComponent::name() const {
+	return _name;
+}
+
+bool AllowedComponent::isContext() const {
+	return _isContext;
+}
+
+const std::vector<std::string> &AllowedComponent::allowedParents() const {
+	return _allowedParents;
+}
+
+int AllowedComponent::minAttr() const {
+	return _minAttr;
+}
+
+int AllowedComponent::maxAttr() const {
+	return _maxAttr;
+}
+
 

@@ -1,4 +1,6 @@
 #include <iostream>
+#include <vector>
+#include <map>
 #include <fstream>
 #include <string>
 #include <sstream>
@@ -17,6 +19,8 @@
 
 #include "colors.hpp"
 
+#include "utils.hpp"
+
 #include "Component.hpp"
 #include "AllowedComponent.hpp"
 
@@ -24,9 +28,10 @@
 
 #include "ParsingError.hpp"
 #include "LexicalError.hpp"
+#include "LogicalError.hpp"
 
-#define GLOBAL_CONTEXT "root"
-#define PARENT_GLOBAL_CONTEXT "proot"
+#define GLOBAL_CONTEXT "__root"
+#define PARENT_GLOBAL_CONTEXT "__proot"
 
 #define PRINT_VALUE(x) println(#x, " = ", x)
 #define PRINT_LINE_VALUE(x) println(__FILE__, ":", __LINE__, " ", #x, " = ", x)
@@ -49,7 +54,7 @@ void skipComment(std::string::iterator &ch) {
 			skippedComment += *ch;
 			ch++;
 		}
-		PRINT_LINE_VALUE(skippedComment);
+		// PRINT_LINE_VALUE(skippedComment);
 	}
 }
 
@@ -133,6 +138,8 @@ void recursivelyParseCfg(Component &currentContext,
 					}
 					if (*ch == '{') {
 						ch++;
+						// PRINT_LINE_VALUE(currentContext.name());
+						// PRINT_LINE_VALUE(child.name());
 						child.setParentName(currentContext.name());
 						recursivelyParseCfg(child, root, ch, it_begin, '}');
 						currentContext.appendChild(child);
@@ -140,6 +147,7 @@ void recursivelyParseCfg(Component &currentContext,
 					}
 					else if (*ch == ';') {
 						ch++;
+						child.setParentName(currentContext.name());
 						currentContext.appendChild(child);
 						// PRINT_LINE_VALUE(child.depth());
 					}
@@ -219,46 +227,97 @@ void parseConfigFile(std::string cfg, std::string cfgFname, Component &root, std
 #define RETURN_DIRECTIVE "return"
 #define CGI_PATH_DIRECTIVE "cgi_path"
 
-void validateConfigFile(Component &root) {
 
-	// std::vector<std::pair<std::string, bool>> componentsAndTypes;
-
+void validateConfigFile(Component &root, std::string cfgName, std::string pName) {
 	
-	std::vector<AllowedComponent> allowedComponents;
+	std::map<std::string, AllowedComponent> allowedComponents;
 
 	// allowed contexts
 
-	allowedComponents.push_back(AllowedComponent(HTTP_CONTEXT, CONTEXT, list<std::string>(GLOBAL_CONTEXT), 0, 0, NULL));
-	allowedComponents.push_back(AllowedComponent(SERVER_CONTEXT, CONTEXT, list<std::string>(HTTP_CONTEXT), 0, 0, NULL));
-	allowedComponents.push_back(AllowedComponent(LOCATION_CONTEXT, CONTEXT, list<std::string>(SERVER_CONTEXT), 1, 1, NULL));
-	allowedComponents.push_back(AllowedComponent(CGI_CONTEXT, CONTEXT, list<std::string>(LOCATION_CONTEXT), 1, 1, NULL));
+	allowedComponents.insert(std::make_pair(HTTP_CONTEXT, AllowedComponent(HTTP_CONTEXT, CONTEXT, list<std::string>(GLOBAL_CONTEXT), 0, 0, NULL)));
+	allowedComponents.insert(std::make_pair(SERVER_CONTEXT, AllowedComponent(SERVER_CONTEXT, CONTEXT, list<std::string>(HTTP_CONTEXT), 0, 0, NULL)));
+	allowedComponents.insert(std::make_pair(LOCATION_CONTEXT, AllowedComponent(LOCATION_CONTEXT, CONTEXT, list<std::string>(SERVER_CONTEXT), 1, 1, NULL)));
+	allowedComponents.insert(std::make_pair(CGI_CONTEXT, AllowedComponent(CGI_CONTEXT, CONTEXT, list<std::string>(LOCATION_CONTEXT), 1, 1, NULL)));
 
 	// allowed directives
 
-	allowedComponents.push_back(AllowedComponent(LISTEN_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT), 1, 1, NULL));
-	allowedComponents.push_back(AllowedComponent(ROOT_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, 1, NULL));
-	allowedComponents.push_back(AllowedComponent(INDEX_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, INT_MAX, NULL));
-	allowedComponents.push_back(AllowedComponent(SERVER_NAMES_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT), 1, 1, NULL));
-	allowedComponents.push_back(AllowedComponent(CLIENT_MAX_BODY_SIZE_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT, HTTP_CONTEXT), 1, 1, NULL));
-	allowedComponents.push_back(AllowedComponent(ALLOW_METHODS_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT, LOCATION_CONTEXT), 1, 3, NULL));
-	allowedComponents.push_back(AllowedComponent(AUTOINDEX_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, 1, NULL));
-	allowedComponents.push_back(AllowedComponent(ERROR_PAGE_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 2, 2, NULL));
-	allowedComponents.push_back(AllowedComponent(RETURN_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 2, 2, NULL));
-	allowedComponents.push_back(AllowedComponent(CGI_PATH_DIRECTIVE, DIRECTIVE, list<std::string>(CGI_CONTEXT), 1, 1, NULL));
+	allowedComponents.insert(std::make_pair(LISTEN_DIRECTIVE, AllowedComponent(LISTEN_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT), 1, 1, NULL)));
+	allowedComponents.insert(std::make_pair(ROOT_DIRECTIVE, AllowedComponent(ROOT_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, 1, NULL)));
+	allowedComponents.insert(std::make_pair(INDEX_DIRECTIVE, AllowedComponent(INDEX_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, INT_MAX, NULL)));
+	allowedComponents.insert(std::make_pair(SERVER_NAMES_DIRECTIVE, AllowedComponent(SERVER_NAMES_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT), 1, INT_MAX, NULL)));
+	allowedComponents.insert(std::make_pair(CLIENT_MAX_BODY_SIZE_DIRECTIVE, AllowedComponent(CLIENT_MAX_BODY_SIZE_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT, HTTP_CONTEXT), 1, 1, NULL)));
+	allowedComponents.insert(std::make_pair(ALLOW_METHODS_DIRECTIVE, AllowedComponent(ALLOW_METHODS_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT, LOCATION_CONTEXT), 1, 3, NULL)));
+	allowedComponents.insert(std::make_pair(AUTOINDEX_DIRECTIVE, AllowedComponent(AUTOINDEX_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, 1, NULL)));
+	allowedComponents.insert(std::make_pair(ERROR_PAGE_DIRECTIVE, AllowedComponent(ERROR_PAGE_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 2, 2, NULL)));
+	allowedComponents.insert(std::make_pair(RETURN_DIRECTIVE, AllowedComponent(RETURN_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 2, 2, NULL)));
+	allowedComponents.insert(std::make_pair(CGI_PATH_DIRECTIVE, AllowedComponent(CGI_PATH_DIRECTIVE, DIRECTIVE, list<std::string>(CGI_CONTEXT), 1, 1, NULL)));
 
 	std::vector<Component> allComponents = root.getAllChildrenAndSubChildren();
 	for (std::vector<Component>::iterator it = allComponents.begin(); it != allComponents.end(); it++) {
-		print((it->isContext() ? "Context  " : "Directive"), ": ", it->name(), ":");
-		for (std::vector<std::string>::const_iterator cit = it->attr().begin(); cit != it->attr().end(); cit++) {
-			print(' ', *cit);
+		std::map<std::string, AllowedComponent>::iterator found = allowedComponents.find(it->name());
+		if (found == allowedComponents.end()) {
+			throw LexicalError(std::string("Unrecognized ") + (it->isContext() ? "context" : "directive") + ": " + it->name(), pName, cfgName, it->line(), it->col(), true, *it, 0);
 		}
-		println("");
+		else {
+			AllowedComponent alComp = found->second;
+			if (alComp.isContext() != it->isContext()) {
+				throw LexicalError(it->name() + " is a " + (alComp.isContext() ? "context" : "directive") + " keyword, can't use it as a " + (it->isContext() ? "context" : "directive"), pName, cfgName, it->line(), it->col(), true, *it, 0);
+			}
+			else if (std::find(alComp.allowedParents().begin(), alComp.allowedParents().end(), it->parentName()) == alComp.allowedParents().end()) {
+				PRINT_LINE_VALUE(it->parentName());
+				std::string alParents = alComp.allowedParents()[0];
+				for (std::vector<std::string>::const_iterator apit = alComp.allowedParents().begin() + 1; apit != alComp.allowedParents().end(); apit++) {
+					alParents += ", ";
+					alParents += *apit;
+				}
+				throw LexicalError(it->name() + " can only exist inside these contexts: " + alParents, pName, cfgName, it->line(), it->col(), true, *it, 0);
+			}
+			else if (it->attr().size() < (size_t)alComp.minAttr()) {
+				throw LexicalError(it->name() + " requires atleast " + to_string(alComp.minAttr()) + " attributes, got " + to_string(it->attr().size()), pName, cfgName, it->line(), it->col(), true, *it, 0);
+			}
+			else if (it->attr().size() > (size_t)alComp.maxAttr()) {
+				throw LexicalError(it->name() + " requires a maximum of " + to_string(alComp.maxAttr()) + " attributes, got " + to_string(it->attr().size()), pName, cfgName, it->line(), it->col(), true, *it, alComp.maxAttr() + 1);
+			}
+			else if (alComp.attrIsCorrect) {
+				for (size_t n = 0; n < it->attr().size(); n++) {
+					std::string error = alComp.attrIsCorrect(it->attr(n), n);
+					if (error != "") {
+						throw LexicalError(error, pName, cfgName, it->line(), it->col(), true, *it, n + 1);
+					}
+				}
+			}
+		}
 	}
-	// for (std::vector<Component>::const_iterator it = root.children().begin(); it != root.children().end(); it++) {
-	// 	if (it->isContext() && it->name() != HTTP_CONTEXT) {
-	// 		// throw LexicalError();
-	// 	}
-	// }
+	Component *httpContext =root.findFirstChildContext(HTTP_CONTEXT);
+	if (!httpContext) {
+		throw LogicalError(std::string("no ") + HTTP_CONTEXT + " context at the root of the config file", pName, cfgName, 0, 0, false);
+	}
+	if (!httpContext->findFirstChildContext(SERVER_CONTEXT)) {
+		throw LogicalError(std::string("no ") + SERVER_CONTEXT + " context inside the " + HTTP_CONTEXT + " context", pName, cfgName, 0, 0, false);
+	}
+	std::vector<Component> serverContexts = httpContext->findChildrenContext(SERVER_CONTEXT);
+	for (std::vector<Component>::iterator it = serverContexts.begin(); it != serverContexts.end(); it++) {
+		if (!it->findFirstChildDirective(LISTEN_DIRECTIVE)) {
+			throw LogicalError(std::string("no ") + LISTEN_DIRECTIVE + " directive inside the " + SERVER_CONTEXT + " context", pName, cfgName, it->line(), it->col(), false);
+		}
+		std::vector<Component> listenDirectives = it->findChildrenDirective(LISTEN_DIRECTIVE);
+		if (listenDirectives.size() > 1) {
+			throw LogicalError(std::string("more than one ") + LISTEN_DIRECTIVE + " directive inside the " + SERVER_CONTEXT + " context", pName, cfgName, listenDirectives[1].line(), listenDirectives[1].col(), false);
+		}
+		std::vector<Component> locationContexts = it->findChildrenContext(LOCATION_CONTEXT);
+		for (std::vector<Component>::iterator lit = locationContexts.begin(); lit != locationContexts.end(); lit++) {
+			std::vector<Component> cgiContexts = lit->findChildrenContext(CGI_CONTEXT);
+			for (std::vector<Component>::iterator cit = cgiContexts.begin(); cit != cgiContexts.end(); cit++) {
+				if (!cit->findFirstChildDirective(CGI_PATH_DIRECTIVE)) {
+					throw LogicalError(std::string("no ") + CGI_PATH_DIRECTIVE + " directive inside the " + CGI_CONTEXT + " context", pName, cfgName, cit->line(), cit->col(), false);
+				}
+				std::vector<Component> cgiPathDirectives = cit->findChildrenDirective(CGI_PATH_DIRECTIVE);
+				if (cgiPathDirectives.size() > 1) {
+					throw LogicalError(std::string("more than one ") + CGI_PATH_DIRECTIVE + " directive inside the " + CGI_CONTEXT + " context", pName, cfgName, cgiPathDirectives[1].line(), cgiPathDirectives[1].col(), false);
+				}
+			}
+		}
+	}
 }
 
 void startServer() {
@@ -328,10 +387,15 @@ void printComponentRecursively(const Component &current, int tabs = 0) {
 	print(RESET);
 	if (current.isContext()) {
 		if (current.parentName() != PARENT_GLOBAL_CONTEXT) {
-			println("{");
-			if (current.children().size() == 0) {
-				print('\n');
-			}
+			current.children().size() ? println("{") : print("{");
+			// if (current.children().size() == 0) {
+			// 	print(FAINT_GRAY);
+			// 	for (int i = 0; i < tabs; i++) {
+			// 		print("→   ");
+			// 	}
+			// 	print(RESET);
+			// 	print('\n');
+			// }
 		}
 		int complen = current.children().size();
 		for (int i = 0; i < complen; i++) {
@@ -339,7 +403,7 @@ void printComponentRecursively(const Component &current, int tabs = 0) {
 			 * ((current.parentName() != PARENT_GLOBAL_CONTEXT))
 			);
 		}
-		if (current.parentName() != PARENT_GLOBAL_CONTEXT) {
+		if (current.parentName() != PARENT_GLOBAL_CONTEXT && current.children().size()) {
 			print(FAINT_GRAY);
 			for (int i = 0; i < tabs; i++) {
 				print("→   ");
@@ -382,7 +446,7 @@ int main(int ac, char **av, char **ep) {
 
 	try {
 		parseConfigFile(configFileContents, configFileName, root, av[0]);
-		validateConfigFile(root);
+		validateConfigFile(root, configFileName, av[0]);
 		// PRINT_LINE_VALUE("here");
 		// std::vector<Component> rootChildren = root.children();
 		// for (std::vector<Component>::const_iterator cit = root.children().begin(); cit != root.children().end(); cit++) {
@@ -398,6 +462,6 @@ int main(int ac, char **av, char **ep) {
 	// PRINT_LINE_VALUE(root.children()[0].children()[0].name());
 	// PRINT_LINE_VALUE(root.children()[0].children()[0].depth());
 	
-	startServer();
+	// startServer();
 	println("-- end --");
 }

@@ -1,11 +1,11 @@
-#include "LexicalError.hpp"
+#include "LogicalError.hpp"
 #include "utils.hpp"
 #include "colors.hpp"
 #include "Component.hpp"
 
-LexicalError::LexicalError(std::string _error, std::string programName, std::string file, int line, int col, bool higher_verbose, const Component& where, int argError) {
+LogicalError::LogicalError(std::string _error, std::string programName, std::string file, int line, int col, bool higher_verbose, const Component& where, int argError) {
 	(void)higher_verbose;
-	error = BOLD + programName + ": " + BOLD_RED + "lexical_error" + RESET + BOLD + ": " + file + ":" + to_string(line) + ":" + to_string(col) + " " + _error + RESET;
+	error = BOLD + programName + ": " + BOLD_RED + "logical_error" + RESET + BOLD + ": " + file + ":" + to_string(line) + ":" + to_string(col) + " " + _error + RESET;
 	if (higher_verbose) {
 		error += '\n';
 		int ccol = 1;
@@ -36,15 +36,15 @@ LexicalError::LexicalError(std::string _error, std::string programName, std::str
 	}
 }
 
-LexicalError::~LexicalError() throw() {}
+LogicalError::~LogicalError() throw() {}
 
-LexicalError::LexicalError(const LexicalError &ref): error(ref.error) {}
+LogicalError::LogicalError(const LogicalError &ref): error(ref.error) {}
 
-LexicalError &LexicalError::operator=(const LexicalError &ref) {
+LogicalError &LogicalError::operator=(const LogicalError &ref) {
 	error = ref.error;
 	return *this;
 }
 
-const char *LexicalError::what() const throw() {
+const char *LogicalError::what() const throw() {
 	return error.c_str();
 }

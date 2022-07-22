@@ -6,8 +6,8 @@ contexts:
 directives:
 	- listen: (?:[\S]+\:)Number (mandatory inside a server context)
 	- root: Path
-	- index: [String] (can only be a child of a server or location context)
-	- server_names: String
+	- index: [Path] (can only be a child of a server or location context)
+	- server_names: [String]
 	- client_max_body_size: [1-9][0-9]*(?:G|M|K)
 	- allow_methods: POST|GET|DELETE
 	- autoindex: on|off
