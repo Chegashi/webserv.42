@@ -28,5 +28,6 @@ AllowedComponent &AllowedComponent::operator=(const AllowedComponent &ref) {
 	_minAttr = ref._minAttr;
 	_maxAttr = ref._maxAttr;
 	attrIsCorrect = ref.attrIsCorrect;
+	return *this;
 }
 

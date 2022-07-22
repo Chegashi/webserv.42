@@ -16,7 +16,7 @@ std::vector<A> list(const A &a) {
 	return ret;
 }
 
-template <class A, class A>
+template <class A>
 std::vector<A> list(const A &a, const A &b) {
 	std::vector<A> ret;
 	ret.push_back(a);
@@ -24,7 +24,7 @@ std::vector<A> list(const A &a, const A &b) {
 	return ret;
 }
 
-template <class A, class A, class A>
+template <class A>
 std::vector<A> list(const A &a, const A &b, const A &c) {
 	std::vector<A> ret;
 	ret.push_back(a);
@@ -33,7 +33,7 @@ std::vector<A> list(const A &a, const A &b, const A &c) {
 	return ret;
 }
 
-template <class A, class A, class A, class A>
+template <class A>
 std::vector<A> list(const A &a, const A &b, const A &c, const A &d) {
 	std::vector<A> ret;
 	ret.push_back(a);
@@ -43,7 +43,7 @@ std::vector<A> list(const A &a, const A &b, const A &c, const A &d) {
 	return ret;
 }
 
-template <class A, class A, class A, class A, class A>
+template <class A>
 std::vector<A> list(const A &a, const A &b, const A &c, const A &d, const A &e) {
 	std::vector<A> ret;
 	ret.push_back(a);
@@ -54,7 +54,7 @@ std::vector<A> list(const A &a, const A &b, const A &c, const A &d, const A &e) 
 	return ret;
 }
 
-template <class A, class A, class A, class A, class A, class A>
+template <class A>
 std::vector<A> list(const A &a, const A &b, const A &c, const A &d, const A &e, const A &f) {
 	std::vector<A> ret;
 	ret.push_back(a);
@@ -66,7 +66,7 @@ std::vector<A> list(const A &a, const A &b, const A &c, const A &d, const A &e, 
 	return ret;
 }
 
-template <class A, class A, class A, class A, class A, class A, class A>
+template <class A>
 std::vector<A> list(const A &a, const A &b, const A &c, const A &d, const A &e, const A &f, const A &g) {
 	std::vector<A> ret;
 	ret.push_back(a);
@@ -79,7 +79,7 @@ std::vector<A> list(const A &a, const A &b, const A &c, const A &d, const A &e, 
 	return ret;
 }
 
-template <class A, class A, class A, class A, class A, class A, class A, class A>
+template <class A>
 std::vector<A> list(const A &a, const A &b, const A &c, const A &d, const A &e, const A &f, const A &g, const A &h) {
 	std::vector<A> ret;
 	ret.push_back(a);
@@ -93,7 +93,7 @@ std::vector<A> list(const A &a, const A &b, const A &c, const A &d, const A &e, 
 	return ret;
 }
 
-template <class A, class A, class A, class A, class A, class A, class A, class A, class A>
+template <class A>
 std::vector<A> list(const A &a, const A &b, const A &c, const A &d, const A &e, const A &f, const A &g, const A &h, const A &i) {
 	std::vector<A> ret;
 	ret.push_back(a);

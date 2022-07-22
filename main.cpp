@@ -208,6 +208,16 @@ void parseConfigFile(std::string cfg, std::string cfgFname, Component &root, std
 #define CGI_CONTEXT "cgi"
 
 
+#define LISTEN_DIRECTIVE "listen"
+#define ROOT_DIRECTIVE "root"
+#define INDEX_DIRECTIVE "index"
+#define SERVER_NAMES_DIRECTIVE "server_names"
+#define CLIENT_MAX_BODY_SIZE_DIRECTIVE "client_max_body_size"
+#define ALLOW_METHODS_DIRECTIVE "allow_methods"
+#define AUTOINDEX_DIRECTIVE "autoindex"
+#define ERROR_PAGE_DIRECTIVE "error_page"
+#define RETURN_DIRECTIVE "return"
+#define CGI_PATH_DIRECTIVE "cgi_path"
 
 void validateConfigFile(Component &root) {
 
@@ -216,24 +226,34 @@ void validateConfigFile(Component &root) {
 	
 	std::vector<AllowedComponent> allowedComponents;
 
+	// allowed contexts
+
 	allowedComponents.push_back(AllowedComponent(HTTP_CONTEXT, CONTEXT, list<std::string>(GLOBAL_CONTEXT), 0, 0, NULL));
 	allowedComponents.push_back(AllowedComponent(SERVER_CONTEXT, CONTEXT, list<std::string>(HTTP_CONTEXT), 0, 0, NULL));
 	allowedComponents.push_back(AllowedComponent(LOCATION_CONTEXT, CONTEXT, list<std::string>(SERVER_CONTEXT), 1, 1, NULL));
-	allowedComponents.push_back(AllowedComponent(CGI_CONTEXT, CONTEXT, list<std::string>(SERVER_CONTEXT), 1, 1, NULL));
+	allowedComponents.push_back(AllowedComponent(CGI_CONTEXT, CONTEXT, list<std::string>(LOCATION_CONTEXT), 1, 1, NULL));
 
-	// componentsAndTypes.push_back(std::make_pair(HTTP_CONTEXT, CONTEXT));
-	// componentsAndTypes.push_back(std::make_pair(SERVER_CONTEXT, CONTEXT));
-	// componentsAndTypes.push_back(std::make_pair(LOCATION_CONTEXT, CONTEXT));
-	// componentsAndTypes.push_back(std::make_pair(CGI_CONTEXT, CONTEXT));
+	// allowed directives
+
+	allowedComponents.push_back(AllowedComponent(LISTEN_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT), 1, 1, NULL));
+	allowedComponents.push_back(AllowedComponent(ROOT_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, 1, NULL));
+	allowedComponents.push_back(AllowedComponent(INDEX_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, INT_MAX, NULL));
+	allowedComponents.push_back(AllowedComponent(SERVER_NAMES_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT), 1, 1, NULL));
+	allowedComponents.push_back(AllowedComponent(CLIENT_MAX_BODY_SIZE_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT, HTTP_CONTEXT), 1, 1, NULL));
+	allowedComponents.push_back(AllowedComponent(ALLOW_METHODS_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT, LOCATION_CONTEXT), 1, 3, NULL));
+	allowedComponents.push_back(AllowedComponent(AUTOINDEX_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, 1, NULL));
+	allowedComponents.push_back(AllowedComponent(ERROR_PAGE_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 2, 2, NULL));
+	allowedComponents.push_back(AllowedComponent(RETURN_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 2, 2, NULL));
+	allowedComponents.push_back(AllowedComponent(CGI_PATH_DIRECTIVE, DIRECTIVE, list<std::string>(CGI_CONTEXT), 1, 1, NULL));
 
 	std::vector<Component> allComponents = root.getAllChildrenAndSubChildren();
-	// for (std::vector<Component>::iterator it = allComponents.begin(); it != allComponents.end(); it++) {
-	// 	print((it->isContext() ? "Context  " : "Directive"), ": ", it->name(), ":");
-	// 	for (std::vector<std::string>::const_iterator cit = it->attr().begin(); cit != it->attr().end(); cit++) {
-	// 		print(' ', *cit);
-	// 	}
-	// 	println("");
-	// }
+	for (std::vector<Component>::iterator it = allComponents.begin(); it != allComponents.end(); it++) {
+		print((it->isContext() ? "Context  " : "Directive"), ": ", it->name(), ":");
+		for (std::vector<std::string>::const_iterator cit = it->attr().begin(); cit != it->attr().end(); cit++) {
+			print(' ', *cit);
+		}
+		println("");
+	}
 	// for (std::vector<Component>::const_iterator it = root.children().begin(); it != root.children().end(); it++) {
 	// 	if (it->isContext() && it->name() != HTTP_CONTEXT) {
 	// 		// throw LexicalError();
@@ -378,6 +398,6 @@ int main(int ac, char **av, char **ep) {
 	// PRINT_LINE_VALUE(root.children()[0].children()[0].name());
 	// PRINT_LINE_VALUE(root.children()[0].children()[0].depth());
 	
-	// startServer();
+	startServer();
 	println("-- end --");
 }
