@@ -17,13 +17,23 @@ ParsingError::ParsingError(std::string _error, std::string programName, std::str
 				cline++;
 			}
 		}
+		std::string::iterator tmp = it;
 		while (it != fContent.end() && *it != '\n') {
-			error += *it;
+			if (*it == '\t')
+				error += "    ";
+			else
+				error += *it;
+			// col += *it == '\t' ? 3 : 0;
 			it++;
 		}
 		error += '\n';
-		for (int i = 1; i < col; i++) {
-			error += ' ';
+		it = tmp;
+		int i = 1;
+		while (it != fContent.end() && *it != '\n' && i < col) {
+		// for (int i = 1; i < col; i++) {
+			error += *it == '\t' ? "    " : " ";
+			it++;
+			i++;
 		}
 		error += "^~~~~~";
 	}

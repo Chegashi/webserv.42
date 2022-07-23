@@ -323,15 +323,24 @@ void validateAllowMethodsDirectiveAttr(std::string attr, int index) {
 
 void validateListenDirectiveAttr(std::string attr, int index) {
 	switch (index) {
-		case 0:
-			try {
-				if (attr[0] == '+')
-					throw std::invalid_argument(attr);
-				to_int(attr);
-			} catch (const std::exception& e) {
-				throw std::string(LISTEN_DIRECTIVE " directive requires an integer, got ") + e.what();
+		case 0: {
+			if (attr.find(":") != (size_t)-1) {
+				size_t colIndex = attr.find(":");
+				std::string host = attr.substr(0, colIndex);
+				if (host == "") {
+					throw std::string(LISTEN_DIRECTIVE " directive requires an attribute in the format host?:port where host can't be an empty string");
+				}
+				std::string port = attr.substr(colIndex + 1, attr.length());
+				attr = port;
+			}
+			if (attr[0] == '+' || throwed(to_int, attr))
+				throw std::string(LISTEN_DIRECTIVE " directive requires an attribute in the format host?:port where port is an integer, got ") + attr;
+			int integer = to_int(attr);
+			if (integer <= 0 || integer > UINT16_MAX) {
+				throw std::string("ports are strictly positive integers in the range [1, ") + to_string(UINT16_MAX) + "], got " + to_string(integer);
 			}
 			break;
+		}
 		default:
 			break;
 	}
