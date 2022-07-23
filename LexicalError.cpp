@@ -32,7 +32,11 @@ LexicalError::LexicalError(std::string _error, std::string programName, std::str
 		for (int i = 1; i < ccol; i++) {
 			error += ' ';
 		}
-		error += "^~~~~~";
+		error += "^";
+		int argErrorLength = argError ? where.attr(argError - 1).length() : where.name().length();
+		for (int i = 1; i < argErrorLength; i++) {
+			error += "~";
+		}
 	}
 }
 

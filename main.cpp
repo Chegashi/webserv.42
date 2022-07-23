@@ -19,13 +19,15 @@
 
 #include "colors.hpp"
 
-#include "utils.hpp"
 
 #include "Component.hpp"
 #include "AllowedComponent.hpp"
 
 #include "list.hpp"
 
+#include "throwed.hpp"
+
+#include "utils.hpp"
 #include "ParsingError.hpp"
 #include "LexicalError.hpp"
 #include "LogicalError.hpp"
@@ -192,9 +194,7 @@ void parseConfigFile(std::string cfg, std::string cfgFname, Component &root, std
 		root.setName(GLOBAL_CONTEXT);
 		root.setParentName(PARENT_GLOBAL_CONTEXT);
 		root.setDepth(0);
-		// PRINT_LINE_VALUE(root.depth());
 		recursivelyParseCfg(root, root, begin, cfg.begin(), '\0');
-		// PRINT_LINE_VALUE(root.depth());
 	}
 	catch (const std::string &e) {
 		int occurrences = 0;
@@ -206,7 +206,6 @@ void parseConfigFile(std::string cfg, std::string cfgFname, Component &root, std
 			pos += 1;
 		}
 		throw ParsingError(e, programName, cfgFname, occurrences + 1, (int)(begin - cfg.begin()) - old_pos, true, cfg);
-		// errorln("parsing error at character: ", cfgFname, ":", occurrences + 1, ":", (int)(begin - cfg.begin()) - old_pos);
 	}
 }
 
@@ -228,29 +227,160 @@ void parseConfigFile(std::string cfg, std::string cfgFname, Component &root, std
 #define CGI_PATH_DIRECTIVE "cgi_path"
 
 
+void validateClientMaxBodySizeDirectiveAttr(std::string attr, int index) {
+	switch (index) {
+		case 0: {
+			char c = attr[attr.length() - 1];
+			if ((((c != 'M' && c != 'K' && c != 'G') || throwed(to_int, attr.substr(0, attr.length() - 1))) && throwed(to_int, attr)) || attr[0] == '+')
+				throw std::string(CLIENT_MAX_BODY_SIZE_DIRECTIVE " directive requires an attribute in the regex format [1-9][0-9]*(?:K|M|G), got '") + attr + "'";
+			int integer = to_int(attr.substr(0, attr.length() - !std::isdigit(c)));
+			if (integer <= 0)
+				throw std::string(CLIENT_MAX_BODY_SIZE_DIRECTIVE " directive requires a strictly positive integer, got '") + to_string(integer) + "'";
+			return;
+		}
+		default:
+			break;
+	}
+}
+
+#define POST_METHOD "POST"
+#define GET_METHOD "GET"
+#define DELETE_METHOD "DELETE"
+
+#define AUTOINDEX_ON "on"
+#define AUTOINDEX_OFF "off"
+
+void validateCgiPathDirectiveAttr(std::string attr, int index) {
+	switch (index)
+	{
+		case 0: {
+			if (attr.substr(attr.length() - 1, attr.length()) == "/" || attr.substr(attr.length() - 2, attr.length()) == "/." || attr.substr(attr.length() - 3, attr.length()) == "/..")
+				throw std::string(CGI_PATH_DIRECTIVE) + " directive expects a file as second argument, got directory: " + attr;
+			break;
+		}
+	
+	default:
+		break;
+	}
+}
+
+void validateReturnDirectiveAttr(std::string attr, int index) {
+	switch (index)
+	{
+		case 0: {
+			if (throwed(to_int, attr)) {
+				throw std::string(RETURN_DIRECTIVE) + ": expected integer, got " + attr;
+			}
+			int integer = to_int(attr);
+			if (integer < 0)
+				throw std::string("http response codes are positive integers");
+			if (integer >= 400 || integer < 300)
+				throw std::string("redirection http response codes are in the range [300 - 399], got") + attr;
+			break;
+		}
+		default:
+			break;
+	}
+}
+
+void validateErrorPageDirectiveAttr(std::string attr, int index) {
+	switch (index)
+	{
+		case 0: {
+			if (throwed(to_int, attr)) {
+				throw std::string(ERROR_PAGE_DIRECTIVE) + ": expected integer, got " + attr;
+			}
+			int integer = to_int(attr);
+			if (integer < 0)
+				throw std::string("http response codes are positive integers");
+			if (integer >= 500 || integer < 400)
+				throw std::string("client error http response codes are in the range [400 - 499], got") + attr;
+			break;
+		}
+		case 1: {
+			if (attr.substr(attr.length() - 1, attr.length()) == "/" || attr.substr(attr.length() - 2, attr.length()) == "/." || attr.substr(attr.length() - 3, attr.length()) == "/..")
+				throw std::string(ERROR_PAGE_DIRECTIVE) + " directive expects a file as second argument, got directory: " + attr;
+			break;
+		}
+		default:
+			break;
+	}
+}
+
+void validateAutoIndexDirectiveAttr(std::string attr, int index) {
+	(void)index;
+	if (attr != AUTOINDEX_ON && attr != AUTOINDEX_OFF) {
+		throw std::string(AUTOINDEX_DIRECTIVE) + " directive only takes values " AUTOINDEX_ON " or " AUTOINDEX_OFF ", got " + attr;
+	}
+}
+
+void validateAllowMethodsDirectiveAttr(std::string attr, int index) {
+	(void)index;
+	if (attr != POST_METHOD && attr != GET_METHOD && attr != DELETE_METHOD) {
+		throw std::string(ALLOW_METHODS_DIRECTIVE) + " directive only supports the methods " GET_METHOD ", " POST_METHOD ", and " DELETE_METHOD ", got " + attr;
+	}
+}
+
+void validateListenDirectiveAttr(std::string attr, int index) {
+	switch (index) {
+		case 0:
+			try {
+				if (attr[0] == '+')
+					throw std::invalid_argument(attr);
+				to_int(attr);
+			} catch (const std::exception& e) {
+				throw std::string(LISTEN_DIRECTIVE " directive requires an integer, got ") + e.what();
+			}
+			break;
+		default:
+			break;
+	}
+}
+
+void validateCgiContextAttr(std::string attr, int index) {
+	switch (index) {
+		case 0:
+			if (attr[0] != '.') {
+				throw std::string(CGI_CONTEXT) + " context requires a file extension as attribute (should start with a dot)";
+			}
+			if (attr.find('/') != (size_t)-1) {
+				throw std::string("file extensions cannot logically contain slashes");
+			}
+			break;
+		default:
+			break;
+	}
+}
+
 void validateConfigFile(Component &root, std::string cfgName, std::string pName) {
 	
 	std::map<std::string, AllowedComponent> allowedComponents;
 
 	// allowed contexts
 
-	allowedComponents.insert(std::make_pair(HTTP_CONTEXT, AllowedComponent(HTTP_CONTEXT, CONTEXT, list<std::string>(GLOBAL_CONTEXT), 0, 0, NULL)));
-	allowedComponents.insert(std::make_pair(SERVER_CONTEXT, AllowedComponent(SERVER_CONTEXT, CONTEXT, list<std::string>(HTTP_CONTEXT), 0, 0, NULL)));
-	allowedComponents.insert(std::make_pair(LOCATION_CONTEXT, AllowedComponent(LOCATION_CONTEXT, CONTEXT, list<std::string>(SERVER_CONTEXT), 1, 1, NULL)));
-	allowedComponents.insert(std::make_pair(CGI_CONTEXT, AllowedComponent(CGI_CONTEXT, CONTEXT, list<std::string>(LOCATION_CONTEXT), 1, 1, NULL)));
+	allowedComponents.insert(std::make_pair(HTTP_CONTEXT, AllowedComponent(HTTP_CONTEXT, CONTEXT, list<std::string>(GLOBAL_CONTEXT), 0, 0, NULL))); // checked
+	allowedComponents.insert(std::make_pair(SERVER_CONTEXT, AllowedComponent(SERVER_CONTEXT, CONTEXT, list<std::string>(HTTP_CONTEXT), 0, 0, NULL))); // checked
+	allowedComponents.insert(std::make_pair(LOCATION_CONTEXT, AllowedComponent(LOCATION_CONTEXT, CONTEXT, list<std::string>(SERVER_CONTEXT), 1, 1, NULL))); // checked
+	allowedComponents.insert(std::make_pair(CGI_CONTEXT, AllowedComponent(CGI_CONTEXT, CONTEXT, list<std::string>(LOCATION_CONTEXT), 1, 1, validateCgiContextAttr))); // checked
 
 	// allowed directives
 
-	allowedComponents.insert(std::make_pair(LISTEN_DIRECTIVE, AllowedComponent(LISTEN_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT), 1, 1, NULL)));
-	allowedComponents.insert(std::make_pair(ROOT_DIRECTIVE, AllowedComponent(ROOT_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, 1, NULL)));
-	allowedComponents.insert(std::make_pair(INDEX_DIRECTIVE, AllowedComponent(INDEX_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, INT_MAX, NULL)));
-	allowedComponents.insert(std::make_pair(SERVER_NAMES_DIRECTIVE, AllowedComponent(SERVER_NAMES_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT), 1, INT_MAX, NULL)));
-	allowedComponents.insert(std::make_pair(CLIENT_MAX_BODY_SIZE_DIRECTIVE, AllowedComponent(CLIENT_MAX_BODY_SIZE_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT, HTTP_CONTEXT), 1, 1, NULL)));
-	allowedComponents.insert(std::make_pair(ALLOW_METHODS_DIRECTIVE, AllowedComponent(ALLOW_METHODS_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT, LOCATION_CONTEXT), 1, 3, NULL)));
-	allowedComponents.insert(std::make_pair(AUTOINDEX_DIRECTIVE, AllowedComponent(AUTOINDEX_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, 1, NULL)));
-	allowedComponents.insert(std::make_pair(ERROR_PAGE_DIRECTIVE, AllowedComponent(ERROR_PAGE_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 2, 2, NULL)));
-	allowedComponents.insert(std::make_pair(RETURN_DIRECTIVE, AllowedComponent(RETURN_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 2, 2, NULL)));
-	allowedComponents.insert(std::make_pair(CGI_PATH_DIRECTIVE, AllowedComponent(CGI_PATH_DIRECTIVE, DIRECTIVE, list<std::string>(CGI_CONTEXT), 1, 1, NULL)));
+	allowedComponents.insert(std::make_pair(LISTEN_DIRECTIVE, AllowedComponent(LISTEN_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT), 1, 1, validateListenDirectiveAttr))); // checked
+	allowedComponents.insert(std::make_pair(ROOT_DIRECTIVE, AllowedComponent(ROOT_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, 1, NULL))); // checked
+	allowedComponents.insert(std::make_pair(INDEX_DIRECTIVE, AllowedComponent(INDEX_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, INT_MAX, NULL))); // checked
+	allowedComponents.insert(std::make_pair(SERVER_NAMES_DIRECTIVE, AllowedComponent(SERVER_NAMES_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT), 1, INT_MAX, NULL))); // checked
+	allowedComponents.insert(std::make_pair(CLIENT_MAX_BODY_SIZE_DIRECTIVE,
+											AllowedComponent(
+												CLIENT_MAX_BODY_SIZE_DIRECTIVE,
+												DIRECTIVE,
+												list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT, HTTP_CONTEXT),
+												1, 1,
+												validateClientMaxBodySizeDirectiveAttr))); // checked
+	allowedComponents.insert(std::make_pair(ALLOW_METHODS_DIRECTIVE, AllowedComponent(ALLOW_METHODS_DIRECTIVE, DIRECTIVE, list<std::string>(SERVER_CONTEXT, LOCATION_CONTEXT), 1, 3, validateAllowMethodsDirectiveAttr))); // checked
+	allowedComponents.insert(std::make_pair(AUTOINDEX_DIRECTIVE, AllowedComponent(AUTOINDEX_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 1, 1, validateAutoIndexDirectiveAttr))); // checked
+	allowedComponents.insert(std::make_pair(ERROR_PAGE_DIRECTIVE, AllowedComponent(ERROR_PAGE_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 2, 2, validateErrorPageDirectiveAttr))); // checked
+	allowedComponents.insert(std::make_pair(RETURN_DIRECTIVE, AllowedComponent(RETURN_DIRECTIVE, DIRECTIVE, list<std::string>(LOCATION_CONTEXT, SERVER_CONTEXT), 2, 2, validateReturnDirectiveAttr))); // checked
+	allowedComponents.insert(std::make_pair(CGI_PATH_DIRECTIVE, AllowedComponent(CGI_PATH_DIRECTIVE, DIRECTIVE, list<std::string>(CGI_CONTEXT), 1, 1, validateCgiPathDirectiveAttr))); // checked
 
 	std::vector<Component> allComponents = root.getAllChildrenAndSubChildren();
 	for (std::vector<Component>::iterator it = allComponents.begin(); it != allComponents.end(); it++) {
@@ -280,8 +410,10 @@ void validateConfigFile(Component &root, std::string cfgName, std::string pName)
 			}
 			else if (alComp.attrIsCorrect) {
 				for (size_t n = 0; n < it->attr().size(); n++) {
-					std::string error = alComp.attrIsCorrect(it->attr(n), n);
-					if (error != "") {
+					try {
+						alComp.attrIsCorrect(it->attr(n), n);
+					}
+					catch (const std::string &error) {
 						throw LexicalError(error, pName, cfgName, it->line(), it->col(), true, *it, n + 1);
 					}
 				}
