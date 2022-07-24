@@ -36,8 +36,8 @@ class Component {
 		const std::string& parentName() const;
 		const std::vector<std::string>& attr() const;
 		const std::string& attr(int index) const;
-		const std::vector<Component>& children() const;
-		const Component& children(int index) const;
+		std::vector<Component>& children();
+		Component& children(int index);
 		void appendAttr(const std::string &str);
 		void setName(const std::string &str);
 		void setParentName(const std::string &str);

@@ -429,10 +429,11 @@ void validateConfigFile(Component &root, std::string cfgName, std::string pName)
 			}
 		}
 	}
-	Component *httpContext =root.findFirstChildContext(HTTP_CONTEXT);
-	if (!httpContext) {
-		throw LogicalError(std::string("no ") + HTTP_CONTEXT + " context at the root of the config file", pName, cfgName, 0, 0, false);
+	std::vector<Component> httpContexts = root.findChildrenContext(HTTP_CONTEXT);
+	if (httpContexts.size() != 1) {
+		throw LogicalError(std::string("there should be exactly one ") + HTTP_CONTEXT + " context at the root of the file, found " + to_string(httpContexts.size()), pName, cfgName, 0, 0, false);
 	}
+	Component *httpContext =root.findFirstChildContext(HTTP_CONTEXT);
 	if (!httpContext->findFirstChildContext(SERVER_CONTEXT)) {
 		throw LogicalError(std::string("no ") + SERVER_CONTEXT + " context inside the " + HTTP_CONTEXT + " context", pName, cfgName, 0, 0, false);
 	}
@@ -508,7 +509,7 @@ void startServer() {
 	}
 }
 
-void printComponentRecursively(const Component &current, int tabs = 0) {
+void printComponentRecursively(Component &current, int tabs = 0) {
 	print(FAINT_GRAY);
 	for (int i = 0; i < tabs; i++) {
 		print("→   ");
@@ -594,6 +595,14 @@ int main(int ac, char **av, char **ep) {
 		// }
 		// PRINT_LINE_VALUE("here");
 		printComponentRecursively(root);
+		std::vector<Component> servers = root.children(0).findChildrenContext(SERVER_CONTEXT);
+		for (std::vector<Component>::iterator it = servers.begin(); it != servers.end(); it++) {
+			PRINT_LINE_VALUE(it->findFirstChildDirective(LISTEN_DIRECTIVE)->attr(0));
+			std::vector<Component> locations = it->findChildrenContext(LOCATION_CONTEXT);
+			for (std::vector<Component>::iterator location_it = locations.begin(); location_it != locations.end(); location_it++) {
+				PRINT_LINE_VALUE(location_it->attr(0));
+			}
+		}
 	}
 	catch (const std::exception &e) {
 		errorln(e.what());

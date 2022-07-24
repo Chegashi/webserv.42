@@ -57,11 +57,11 @@ const std::vector<std::string>& Component::attr() const {
 	return _attributes;
 }
 
-const std::vector<Component>& Component::children() const {
+std::vector<Component>& Component::children() {
 	return _children;
 }
 
-const Component& Component::children(int index) const {
+Component& Component::children(int index) {
 	return _children[index];
 }
 
